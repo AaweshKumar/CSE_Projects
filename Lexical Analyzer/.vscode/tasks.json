@@ -1,0 +1,27 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "Build SDL App",
+            "type": "shell",
+            "command": "C:/msys64/mingw64/bin/gcc.exe",
+            "args": [
+                "main.c",
+                "-o",
+                "main.exe",
+                "-IC:/msys64/mingw64/include/SDL2",
+                "-LC:/msys64/mingw64/lib",
+                "-lmingw32",
+                "-lSDL2main",
+                "-lSDL2",
+                "-lSDL2_ttf",
+                "-mwindows"
+            ],
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            },
+            "problemMatcher": ["$gcc"]
+        }
+    ]
+}
