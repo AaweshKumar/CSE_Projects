@@ -59,11 +59,52 @@ def assoc_legendre(l, m, x):
     
     return pll
 
+def radial_wavefunction(n, l, r, Z=1):
+    """
+    Hydrogen-like radial wavefunction R_{n,l}(r)
 
+    Parameters
+    ----------
+    n : principal quantum number (1,2,3,...)
+    l : angular quantum number (0 ≤ l < n)
+    r : radial distance from nucleus (in meters)
+    Z : atomic number (default = 1 for hydrogen)
 
+    Returns
+    -------
+    R : value of radial wavefunction at distance r
+    """
 
-if __name__ == "__main__":
-    print(assoc_legendre(0, 0, 0.5))   # should print 1.0
-    print(assoc_legendre(1, 0, 0.5))   # should print 0.5
-    print(assoc_legendre(1, 1, 0.5))   # should print -0.866
-    print(assoc_legendre(2, 0, 0.5))   # should print -0.125
+    # --- Basic physical validation ---
+    if n <= 0:
+        raise ValueError("n must be positive")
+    if l < 0 or l >= n:
+        raise ValueError("l must satisfy 0 <= l < n")
+
+    # --- Physical constant ---
+    a0 = 5.29177210903e-11  # Bohr radius (meters)
+
+    # --- Step 1: Dimensionless radial variable ---
+    rho = (2 * Z * r) / (n * a0)
+
+    # --- Step 2: Laguerre parameters ---
+    p = n - l - 1
+    q = 2*l + 1
+
+    # --- Step 3: Normalization constant ---
+    normalization = math.sqrt(
+        ((2 * Z) / (n * a0))**3 *
+        math.factorial(p) /
+        (2 * n * math.factorial(n + l))
+    )
+
+    # --- Step 4: Associated Laguerre polynomial ---
+    L = associated_laguerre(p, q, rho)
+
+    # --- Step 5: Assemble radial function ---
+    R = normalization * math.exp(-rho / 2) * (rho ** l) * L
+
+    return R
+    
+print(radial_wavefunction(2,1,2))
+
