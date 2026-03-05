@@ -229,7 +229,7 @@ class QuantumSimulatorApp(QMainWindow):
         axes.set_facecolor('#050a10')
 
         # Draw the electron probability cloud
-        axes.scatter(x, y, z, c=colors, s=1.2, alpha=0.5, linewidths=0)
+        axes.scatter(x, y, z, c=colors, s=2, alpha=0.5, linewidths=0)
 
         # Draw nucleus
         axes.scatter([0], [0], [0], color='white', s=100, zorder=10)
@@ -282,3 +282,4 @@ if __name__ == "__main__":
     window = QuantumSimulatorApp()
     window.show()
     sys.exit(app.exec_())
+
