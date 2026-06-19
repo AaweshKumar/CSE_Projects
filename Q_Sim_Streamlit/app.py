@@ -1,7 +1,12 @@
 import math
 import numpy as np
 import streamlit as st
-import matplotlib.pyplot as plt
+import plotly.graph_objects as go
+
+
+# ════════════════════════════════════════════════════════════════
+#  PHYSICS / MATH 
+# ════════════════════════════════════════════════════════════════
 
 def fac(n):  # factorials used later for wavefunction normalization
     return math.factorial(n)
@@ -34,7 +39,7 @@ def associated_legendre(l, m, x):
 
     Describes the angular SHAPE of the orbital.
     """
-    absm = abs(m)  # always use |m|, sign handled in spherical harmonic
+    absm = abs(m)  # always using |m|, sign handled in spherical harmonic
     pmm = 1.0
     if absm > 0:
         somx2 = math.sqrt((1 - x) * (1 + x))  # = sin(theta)
@@ -42,8 +47,6 @@ def associated_legendre(l, m, x):
         for i in range(1, absm + 1):
             pmm *= -fact * somx2
             fact += 2
-
-    # If l == m we're done
     if l == absm:
         return pmm
 
@@ -77,14 +80,10 @@ def radial_wavefunction(n, l, r, Z=1):
     -------
     R : value of radial wavefunction at distance r
     """
-
-    # --- Basic physical validation ---
     if n <= 0:
         raise ValueError("n must be positive")
     if l < 0 or l >= n:
         raise ValueError("l must satisfy 0 <= l < n")
-
-    # --- Physical constant ---
     a0 = 5.29177210903e-11  # Bohr radius (meters)
 
     # --- Step 1: Dimensionless radial variable ---
@@ -121,8 +120,6 @@ def spherical_harmonic(l, m, theta, phi):
     Returns the angular part of the wavefunction.
     """
     absm = abs(m)
-
-    # Normalization constant
     norm = math.sqrt(
         (2 * l + 1) / (4 * math.pi) *
         math.factorial(l - absm) /
@@ -180,15 +177,14 @@ def generate_point_cloud(n, l, m, Z=1, num_points=3000):
     """
     a0 = 5.29177210903e-11
     max_r = n * n * 6 * a0 
-
-    # Find approximate max probability for rejection sampling
+    # Finding approximate max probability for rejection sampling
     max_prob = 0
     for i in range(1000):
         r = (i / 1000) * max_r
         p = probability_density(r, math.pi / 2, 0, n, l, m, Z) * r ** 2
         if p > max_prob:
             max_prob = p
-    max_prob *= 4  # safety margin
+    max_prob *= 4
 
     points = []
     attempts = 0
@@ -199,7 +195,7 @@ def generate_point_cloud(n, l, m, Z=1, num_points=3000):
 
         # Pick random spherical coordinates
         r = np.random.uniform(0, max_r)
-        theta = np.arccos(2 * np.random.uniform(0, 1) - 1)  # uniform on sphere
+        theta = np.arccos(2 * np.random.uniform(0, 1) - 1) 
         phi = np.random.uniform(0, 2 * math.pi)
 
         # Calculate probability at this point
@@ -219,7 +215,6 @@ def get_energy(n, Z=1):  # Energy of hydrogen-like atom at level n.
 @st.cache_data(show_spinner=False)
 def cached_point_cloud(n, l, m, Z, num_points):
     return generate_point_cloud(n, l, m, Z, num_points)
-
 
 ELEMENTS = {
     1: 'H', 2: 'He', 3: 'Li', 4: 'Be', 5: 'B',
@@ -257,7 +252,6 @@ ORBITAL_SHAPES = {
 
 ORBITAL_LETTERS = 'spldf'
 
-
 def build_figure(n, l, m, Z, num_points):
     cloud = cached_point_cloud(n, l, m, Z, num_points)
 
@@ -267,43 +261,67 @@ def build_figure(n, l, m, Z, num_points):
     z = cloud[:, 2] * Z
     probability = cloud[:, 3]
 
-    # Normalize probability to 0-1 so colormap understands it
-    prob_normalized = (probability - probability.min()) / (probability.max() - probability.min() + 1e-10)
-    colors = plt.cm.plasma(prob_normalized)
-
-    # Create dark figure and 3D plot area
-    figure = plt.figure(figsize=(8, 7))
-    figure.patch.set_facecolor('#050a10')
-    axes = figure.add_subplot(111, projection='3d')
-    axes.set_facecolor('#050a10')
-
-    # Draw electron probability cloud and nucleus
-    axes.scatter(x, y, z, c=colors, s=2, alpha=0.5, linewidths=0)
-    axes.scatter([0], [0], [0], color='white', s=100, zorder=10)
-
-    # Title
     orbital_name = f"{n}{ORBITAL_LETTERS[l]}"
     element_symbol = ELEMENTS.get(Z, f"Z={Z}")
     energy = get_energy(n, Z)
-    axes.set_title(
-        f"{element_symbol}  |  {orbital_name}  |  n={n}, l={l}, m={m}  |  E={energy:.2f} eV",
-        color='white', fontsize=11, pad=15
+
+    axis_style = dict(
+        backgroundcolor='#050a10',
+        gridcolor='#16242f',
+        zerolinecolor='#16242f',
+        showbackground=True,
+        color='#445566',
+        title='',
     )
 
-    # Style grid and axes
-    for pane in [axes.xaxis.pane, axes.yaxis.pane, axes.zaxis.pane]:
-        pane.fill = False
-        pane.set_edgecolor('#0a1a2a')
-    axes.tick_params(axis='x', colors='#223344')
-    axes.tick_params(axis='y', colors='#223344')
-    axes.tick_params(axis='z', colors='#223344')
+    figure = go.Figure()
 
-    figure.tight_layout()
+    # Electron probability cloud
+    figure.add_trace(go.Scatter3d(
+        x=x, y=y, z=z,
+        mode='markers',
+        marker=dict(
+            size=2,
+            color=probability,
+            colorscale='Plasma',
+            opacity=0.6,
+        ),
+        hoverinfo='skip',
+        showlegend=False,
+    ))
+
+    # Nucleus
+    figure.add_trace(go.Scatter3d(
+        x=[0], y=[0], z=[0],
+        mode='markers',
+        marker=dict(size=7, color='white'),
+        hoverinfo='skip',
+        showlegend=False,
+    ))
+
+    figure.update_layout(
+        title=dict(
+            text=f"{element_symbol}  |  {orbital_name}  |  n={n}, l={l}, m={m}  |  E={energy:.2f} eV",
+            font=dict(color='white', size=14),
+            x=0.5,
+        ),
+        scene=dict(
+            xaxis=axis_style,
+            yaxis=axis_style,
+            zaxis=axis_style,
+            bgcolor='#050a10',
+            aspectmode='cube',
+        ),
+        paper_bgcolor='#050a10',
+        margin=dict(l=0, r=0, t=50, b=0),
+        height=700,
+    )
+
     return figure
 
 st.set_page_config(page_title="Quantum Atom Simulator", layout="wide")
 
-st.title("Quantum Atom Simulator")
+st.title("⚛️ Quantum Atom Simulator")
 st.caption(
     "Monte Carlo / rejection-sampled electron probability cloud, "
     "built from the hydrogen-like Schrödinger solution."
@@ -326,15 +344,12 @@ with st.sidebar:
 
     # --- n (principal) ---
     n = st.slider("n (principal)", min_value=1, max_value=5, value=1, step=1)
-
-     # --- l (angular), constrained to 0..n-1 ---
     if n > 1:
         l = st.slider("l (angular)", min_value=0, max_value=n - 1, value=0, step=1, key=f"l_slider_{n}")
     else:
         l = 0
         st.caption("l (angular) = 0  — only value possible when n = 1")
 
-    # --- m (magnetic), constrained to -l..l ---
     if l > 0:
         m = st.slider("m (magnetic)", min_value=-l, max_value=l, value=0, step=1, key=f"m_slider_{l}")
     else:
@@ -362,8 +377,7 @@ with st.sidebar:
         f"Angular nodes : {angular_nodes}",
         language=None,
     )
-
 with st.spinner("Generating point cloud..."):
     fig = build_figure(n, l, m, Z, num_points)
 
-st.pyplot(fig, use_container_width=True)
+st.plotly_chart(fig, use_container_width=True)
