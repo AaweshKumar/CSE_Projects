@@ -3,11 +3,6 @@ import numpy as np
 import streamlit as st
 import matplotlib.pyplot as plt
 
-
-# ════════════════════════════════════════════════════════════════
-#  PHYSICS / MATH  (from maths.py — unchanged)
-# ════════════════════════════════════════════════════════════════
-
 def fac(n):  # factorials used later for wavefunction normalization
     return math.factorial(n)
 
@@ -184,7 +179,7 @@ def generate_point_cloud(n, l, m, Z=1, num_points=3000):
     Returns numpy array of shape (num_points, 4) -> [x, y, z, probability]
     """
     a0 = 5.29177210903e-11
-    max_r = n * n * 6 * a0  # sensible upper bound based on n
+    max_r = n * n * 6 * a0 
 
     # Find approximate max probability for rejection sampling
     max_prob = 0
@@ -221,17 +216,10 @@ def generate_point_cloud(n, l, m, Z=1, num_points=3000):
 def get_energy(n, Z=1):  # Energy of hydrogen-like atom at level n.
     return -13.6 * (Z ** 2) / (n ** 2)
 
-
-# Cached wrapper around the expensive rejection-sampling routine so that
-# Streamlit doesn't regenerate the cloud on every unrelated UI interaction.
 @st.cache_data(show_spinner=False)
 def cached_point_cloud(n, l, m, Z, num_points):
     return generate_point_cloud(n, l, m, Z, num_points)
 
-
-# ════════════════════════════════════════════════════════════════
-#  STATIC DATA  (from ui.py — unchanged)
-# ════════════════════════════════════════════════════════════════
 
 ELEMENTS = {
     1: 'H', 2: 'He', 3: 'Li', 4: 'Be', 5: 'B',
@@ -269,11 +257,6 @@ ORBITAL_SHAPES = {
 
 ORBITAL_LETTERS = 'spldf'
 
-
-# ════════════════════════════════════════════════════════════════
-#  RENDERING  (from renderer.py / ui.py render_orbital — unchanged
-#  math/logic, plt.show() swapped for returning a figure object)
-# ════════════════════════════════════════════════════════════════
 
 def build_figure(n, l, m, Z, num_points):
     cloud = cached_point_cloud(n, l, m, Z, num_points)
@@ -317,11 +300,6 @@ def build_figure(n, l, m, Z, num_points):
 
     figure.tight_layout()
     return figure
-
-
-# ════════════════════════════════════════════════════════════════
-#  STREAMLIT UI  (replaces ui.py's PyQt5 QuantumSimulatorApp)
-# ════════════════════════════════════════════════════════════════
 
 st.set_page_config(page_title="Quantum Atom Simulator", layout="wide")
 
