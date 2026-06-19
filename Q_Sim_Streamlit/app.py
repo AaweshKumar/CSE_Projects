@@ -349,11 +349,19 @@ with st.sidebar:
     # --- n (principal) ---
     n = st.slider("n (principal)", min_value=1, max_value=5, value=1, step=1)
 
-    # --- l (angular), constrained to 0..n-1 ---
-    l = st.slider("l (angular)", min_value=0, max_value=max(n - 1, 0), value=0, step=1)
+     # --- l (angular), constrained to 0..n-1 ---
+    if n > 1:
+        l = st.slider("l (angular)", min_value=0, max_value=n - 1, value=0, step=1, key=f"l_slider_{n}")
+    else:
+        l = 0
+        st.caption("l (angular) = 0  — only value possible when n = 1")
 
     # --- m (magnetic), constrained to -l..l ---
-    m = st.slider("m (magnetic)", min_value=-l, max_value=l, value=0, step=1) if l > 0 else 0
+    if l > 0:
+        m = st.slider("m (magnetic)", min_value=-l, max_value=l, value=0, step=1, key=f"m_slider_{l}")
+    else:
+        m = 0
+        st.caption("m (magnetic) = 0  — only value possible when l = 0")
 
     # --- Sample size ---
     num_points = st.slider("Sample points", min_value=1000, max_value=15000, value=8000, step=1000)
