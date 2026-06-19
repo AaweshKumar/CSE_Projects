@@ -321,7 +321,7 @@ def build_figure(n, l, m, Z, num_points):
 
 st.set_page_config(page_title="Quantum Atom Simulator", layout="wide")
 
-st.title("⚛️ Quantum Atom Simulator")
+st.title("Quantum Atom Simulator")
 st.caption(
     "Monte Carlo / rejection-sampled electron probability cloud, "
     "built from the hydrogen-like Schrödinger solution."
