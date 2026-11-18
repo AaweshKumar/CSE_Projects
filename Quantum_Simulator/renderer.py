@@ -1,52 +1,68 @@
-import numpy as np
+"""Standalone Matplotlib 3D visualizer for hydrogenic orbitals.
+
+Displays electron probability cloud in Bohr radii a0.
+"""
+
 import matplotlib.pyplot as plt
-from maths import generate_point_cloud, get_energy
+from maths import generate_point_cloud, get_energy, SPECTROSCOPIC_LETTERS
 
-def render(n, l, m, Z=1, num_points=3000):
 
+def render(n: int, l: int, m: int, Z: int = 1, num_points: int = 3000) -> None:
+    """Render hydrogenic orbital using Matplotlib 3D scatter plot.
+
+    Args:
+        n, l, m: Quantum numbers.
+        Z: Atomic number.
+        num_points: Number of points to sample.
+    """
     print(f"Generating point cloud for n={n}, l={l}, m={m}, Z={Z}...")
     cloud = generate_point_cloud(n, l, m, Z, num_points)
 
-    # Split cloud array into coordinates and probability
-    x           = cloud[:, 0]
-    y           = cloud[:, 1]
-    z           = cloud[:, 2]
+    x = cloud[:, 0]
+    y = cloud[:, 1]
+    z = cloud[:, 2]
     probability = cloud[:, 3]
 
-    # Normalize probability to 0-1 so colormap understands it
-    probability_normalized = (probability - probability.min()) / (probability.max() - probability.min())
-    colors = plt.cm.cool(probability_normalized)
+    # Normalize probability to 0-1 for colormap, guarding against zero range
+    p_min = probability.min()
+    p_max = probability.max()
+    denom = p_max - p_min
+    if denom < 1e-15:
+        denom = 1.0
+    probability_normalized = (probability - p_min) / denom
+    colors = plt.cm.plasma(probability_normalized)
 
-    # Create dark window and 3D plot area
     figure = plt.figure(figsize=(10, 8))
-    figure.patch.set_facecolor('#020408')
-    axes = figure.add_subplot(111, projection='3d')
-    axes.set_facecolor('#020408')
+    figure.patch.set_facecolor("#020408")
+    axes = figure.add_subplot(111, projection="3d")
+    axes.set_facecolor("#020408")
 
-    # Draw electron cloud and nucleus
     axes.scatter(x, y, z, c=colors, s=1.5, alpha=0.6, linewidths=0)
-    axes.scatter([0], [0], [0], color='white', s=80, zorder=10)
+    axes.scatter([0], [0], [0], color="white", s=80, zorder=10)
 
-    # Title
-    energy        = get_energy(n, Z)
-    orbital_names = {0:'s', 1:'p', 2:'d', 3:'f'}
-    orbital_label = f"{n}{orbital_names.get(l, '?')}"
+    energy = get_energy(n, Z, unit="eV")
+    letter = SPECTROSCOPIC_LETTERS[l] if l < len(SPECTROSCOPIC_LETTERS) else "?"
+    orbital_label = f"{n}{letter}"
     axes.set_title(
         f"Orbital: {orbital_label}  |  n={n}, l={l}, m={m}  |  Z={Z}  |  E={energy:.2f} eV",
-        color='white', fontsize=11, pad=15
+        color="white",
+        fontsize=11,
+        pad=15,
     )
 
-    # Style grid and axes
     axes.xaxis.pane.fill = False
     axes.yaxis.pane.fill = False
     axes.zaxis.pane.fill = False
-    axes.xaxis.pane.set_edgecolor('#112233')
-    axes.yaxis.pane.set_edgecolor('#112233')
-    axes.zaxis.pane.set_edgecolor('#112233')
-    axes.tick_params(axis='x', colors='#334455')
-    axes.tick_params(axis='y', colors='#334455')
-    axes.tick_params(axis='z', colors='#334455')
+    axes.xaxis.pane.set_edgecolor("#112233")
+    axes.yaxis.pane.set_edgecolor("#112233")
+    axes.zaxis.pane.set_edgecolor("#112233")
+    axes.tick_params(axis="x", colors="#334455")
+    axes.tick_params(axis="y", colors="#334455")
+    axes.tick_params(axis="z", colors="#334455")
+
+    axes.set_xlabel("x (a₀)", color="#667788")
+    axes.set_ylabel("y (a₀)", color="#667788")
+    axes.set_zlabel("z (a₀)", color="#667788")
 
     plt.tight_layout()
     plt.show()
-

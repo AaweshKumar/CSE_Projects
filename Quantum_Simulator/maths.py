@@ -1,211 +1,267 @@
+"""Quantum mechanics mathematical foundations for hydrogenic systems in Hartree atomic units.
+
+Units:
+    Lengths in Bohr radii (a0).
+    Energies in Hartree (Eh).
+    ħ = m_e = e = 1.
+"""
+
+from typing import Union
 import math
 import numpy as np
 
-#testing repo
-def fac(n): #factorials used later for wavefunction normalization
-    return math.factorial(n)
+# Physical and conversion constants
+HARTREE_EV: float = 27.211386245988
+A0_M: float = 5.29177210903e-11
+AU_TIME_S: float = 2.4188843265857e-17
+ALPHA_FS: float = 1.0 / 137.035999084
 
-def associated_laguerre(p, q, x): 
-    #| `p` | degree | = n - l - 1, number of radial nodes in the orbital |
-    #| `q` | order | = 2l + 1, related to angular momentum of the electron |
-    #| `x` | argument | = ρ (rho), the scaled distance from nucleus = 2Zr/na₀ |
+SPECTROSCOPIC_LETTERS: str = "spdfg"
+ORBITAL_SHAPES: dict[int, str] = {
+    0: "Sphere (s)",
+    1: "Dumbbell (p)",
+    2: "Clover (d)",
+    3: "Complex (f)",
+    4: "Complex (g)",
+}
+
+
+def associated_laguerre(
+    p: int, q: int, x: Union[float, np.ndarray]
+) -> Union[float, np.ndarray]:
+    """Associated Laguerre polynomial L_p^q(x).
+
+    Args:
+        p: Degree (n - l - 1 >= 0).
+        q: Order (2l + 1 >= 0).
+        x: Argument (array or scalar, in atomic units).
+
+    Returns:
+        Evaluated polynomial matching the shape of x.
+    """
+    if p < 0:
+        raise ValueError(f"Laguerre degree p must be non-negative, got {p}")
+    x_arr = np.asarray(x, dtype=float)
     if p == 0:
-        return 1
+        res = np.ones_like(x_arr)
+        return float(res) if np.isscalar(x) else res
     if p == 1:
-        return 1 + q - x
-    L0 = 1
-    L1 = 1 + q - x
+        res = 1.0 + q - x_arr
+        return float(res) if np.isscalar(x) else res
+
+    L0 = np.ones_like(x_arr)
+    L1 = 1.0 + q - x_arr
     for i in range(2, p + 1):
-        L2 = ((2*i + q - 1 - x) * L1 - (i + q - 1) * L0) / i
+        L2 = ((2 * i + q - 1 - x_arr) * L1 - (i + q - 1) * L0) / float(i)
         L0 = L1
         L1 = L2
-    return L1
+    return float(L1) if np.isscalar(x) else L1
 
 
-def assoc_legendre(l, m, x):
-    """
-    Associated Legendre polynomial P_l^|m|(x)
-    
-    l = angular quantum number (orbital shape)
-    m = magnetic quantum number (orientation)
-    x = cos(theta), polar angle argument, range -1 to 1
-    
-    Describes the angular SHAPE of the orbital.
-    """
-    absm = abs(m)  # always use |m|, sign handled in spherical harmonic
-    pmm = 1.0
-    if absm > 0:
-        somx2 = math.sqrt((1 - x) * (1 + x))  # = sin(theta)
-        fact = 1.0
-        for i in range(1, absm + 1):
-            pmm *= -fact * somx2
-            fact += 2
-    
-    # If l == m we're done
-    if l == absm:
-        return pmm
-    
-    # One step up: P_(m+1)^m
-    pmmp1 = x * (2 * absm + 1) * pmm
-    if l == absm + 1:
-        return pmmp1
-    
-    # Recurse up to l using recurrence relation
-    pll = 0.0
-    for ll in range(absm + 2, l + 1):
-        pll = (x * (2*ll - 1) * pmmp1 - (ll + absm - 1) * pmm) / (ll - absm)
-        pmm = pmmp1
-        pmmp1 = pll
-    
-    return pll
+def associated_legendre(
+    l: int, m: int, x: Union[float, np.ndarray]
+) -> Union[float, np.ndarray]:
+    """Associated Legendre polynomial P_l^|m|(x) including Condon-Shortley phase.
 
-def radial_wavefunction(n, l, r, Z=1):
-    """
-    Hydrogen-like radial wavefunction R_{n,l}(r)
+    Args:
+        l: Angular quantum number (l >= 0).
+        m: Magnetic quantum number (|m| <= l).
+        x: Argument cos(theta) in range [-1, 1] (array or scalar).
 
-    Parameters
-    ----------
-    n : principal quantum number (1,2,3,...)
-    l : angular quantum number (0 ≤ l < n)
-    r : radial distance from nucleus (in meters)
-    Z : atomic number (default = 1 for hydrogen)
-
-    Returns
-    -------
-    R : value of radial wavefunction at distance r
-    """
-
-    # --- Basic physical validation ---
-    if n <= 0:
-        raise ValueError("n must be positive")
-    if l < 0 or l >= n:
-        raise ValueError("l must satisfy 0 <= l < n")
-
-    # --- Physical constant ---
-    a0 = 5.29177210903e-11  # Bohr radius (meters)
-
-    # --- Step 1: Dimensionless radial variable ---
-    rho = (2 * Z * r) / (n * a0)
-
-    # --- Step 2: Laguerre parameters ---
-    p = n - l - 1
-    q = 2*l + 1
-
-    # --- Step 3: Normalization constant ---
-    normalization = math.sqrt(
-        ((2 * Z) / (n * a0))**3 *
-        math.factorial(p) /
-        (2 * n * math.factorial(n + l))
-    )
-
-    # --- Step 4: Associated Laguerre polynomial ---
-    L = associated_laguerre(p, q, rho)
-
-    # --- Step 5: Assemble radial function ---
-    R = normalization * math.exp(-rho / 2) * (rho ** l) * L
-
-    return R
-
-def spherical_harmonic(l, m, theta, phi):
-    """
-    Real spherical harmonic Y_lm(theta, phi)
-    l : angular quantum number (shape)
-    m : magnetic quantum number (orientation)
-    theta : polar angle from z-axis (0 to pi)
-    phi: azimuthal angle around z-axis (0 to 2pi)
-
-    Returns the angular part of the wavefunction.
+    Returns:
+        Evaluated polynomial matching the shape of x.
     """
     absm = abs(m)
+    if l < 0:
+        raise ValueError(f"Angular momentum l must be non-negative, got {l}")
+    if absm > l:
+        raise ValueError(f"|m| must be <= l, got |m|={absm}, l={l}")
 
-    # Normalization constant
+    x_arr = np.asarray(x, dtype=float)
+    pmm = np.ones_like(x_arr)
+
+    if absm > 0:
+        # somx2 = sin(theta) = sqrt(1 - x^2)
+        somx2 = np.sqrt(np.clip((1.0 - x_arr) * (1.0 + x_arr), 0.0, None))
+        fact = 1.0
+        for _ in range(1, absm + 1):
+            pmm *= -fact * somx2
+            fact += 2.0
+
+    if l == absm:
+        return float(pmm) if np.isscalar(x) else pmm
+
+    pmmp1 = x_arr * (2.0 * absm + 1.0) * pmm
+    if l == absm + 1:
+        return float(pmmp1) if np.isscalar(x) else pmmp1
+
+    pll = np.zeros_like(x_arr)
+    for ll in range(absm + 2, l + 1):
+        pll = (x_arr * (2.0 * ll - 1.0) * pmmp1 - (ll + absm - 1.0) * pmm) / float(ll - absm)
+        pmm = pmmp1
+        pmmp1 = pll
+
+    return float(pll) if np.isscalar(x) else pll
+
+
+def radial_wavefunction(
+    n: int, l: int, r: Union[float, np.ndarray], Z: int = 1
+) -> Union[float, np.ndarray]:
+    """Hydrogenic radial wavefunction R_{nl}(r) in Hartree atomic units (a0).
+
+    Args:
+        n: Principal quantum number (n >= 1).
+        l: Angular quantum number (0 <= l < n).
+        r: Radial distance in Bohr radii a0 (r >= 0, array or scalar).
+        Z: Atomic number (Z >= 1).
+
+    Returns:
+        R_{nl}(r) in atomic units (a0^(-3/2)), matching the shape of r.
+    """
+    if n < 1:
+        raise ValueError(f"Principal quantum number n must be >= 1, got {n}")
+    if l < 0 or l >= n:
+        raise ValueError(f"Angular quantum number l must satisfy 0 <= l < n, got l={l}, n={n}")
+    if Z < 1:
+        raise ValueError(f"Atomic number Z must be >= 1, got {Z}")
+
+    r_arr = np.asarray(r, dtype=float)
+    rho = (2.0 * Z * r_arr) / float(n)
+
+    p = n - l - 1
+    q = 2 * l + 1
+
+    norm_sq = ((2.0 * Z / float(n)) ** 3) * (
+        math.factorial(p) / (2.0 * n * math.factorial(n + l))
+    )
+    normalization = math.sqrt(norm_sq)
+
+    L = associated_laguerre(p, q, rho)
+    R = normalization * np.exp(-rho / 2.0) * (rho ** l) * L
+
+    return float(R) if np.isscalar(r) else R
+
+
+def spherical_harmonic(
+    l: int,
+    m: int,
+    theta: Union[float, np.ndarray],
+    phi: Union[float, np.ndarray],
+) -> Union[float, np.ndarray]:
+    """Real spherical harmonic Y_{lm}(theta, phi).
+
+    Orthonormal on the unit sphere: ∫ |Y_lm|^2 dΩ = 1.
+
+    Args:
+        l: Angular quantum number (l >= 0).
+        m: Magnetic quantum number (|m| <= l).
+        theta: Polar angle [0, pi] (array or scalar).
+        phi: Azimuthal angle [0, 2pi] (array or scalar).
+
+    Returns:
+        Y_{lm}(theta, phi) matching the broadcast shape of theta and phi.
+    """
+    absm = abs(m)
+    if l < 0:
+        raise ValueError(f"l must be non-negative, got {l}")
+    if absm > l:
+        raise ValueError(f"|m| must be <= l, got |m|={absm}, l={l}")
+
+    th_arr, ph_arr = np.broadcast_arrays(np.asarray(theta, dtype=float), np.asarray(phi, dtype=float))
+
     norm = math.sqrt(
-        (2*l + 1) / (4 * math.pi) *
-        math.factorial(l - absm) /
-        math.factorial(l + absm)
+        ((2.0 * l + 1.0) / (4.0 * math.pi))
+        * (math.factorial(l - absm) / math.factorial(l + absm))
     )
 
-    P = associated_legendre(l, m, math.cos(theta))
+    cos_theta = np.cos(th_arr)
+    P = associated_legendre(l, m, cos_theta)
 
     if m == 0:
-        return norm * P
+        val = norm * P
     elif m > 0:
-        return math.sqrt(2) * norm * P * math.cos(m * phi)
+        val = math.sqrt(2.0) * norm * P * np.cos(m * ph_arr)
     else:
-        return math.sqrt(2) * norm * P * math.sin(absm * phi)
-    
-def probability_density(r, theta, phi, n, l, m, Z=1):
-    """
-    Full probability density |psi|^2 at point (r, theta, phi)
+        val = math.sqrt(2.0) * norm * P * np.sin(absm * ph_arr)
 
-    r     : radial distance from nucleus
-    theta : polar angle
-    phi   : azimuthal angle
-    n,l,m : quantum numbers
-    Z     : atomic number
+    return float(val) if np.isscalar(theta) and np.isscalar(phi) else val
 
-    Returns |R_nl|^2 * |Y_lm|^2
+
+def probability_density(
+    r: Union[float, np.ndarray],
+    theta: Union[float, np.ndarray],
+    phi: Union[float, np.ndarray],
+    n: int,
+    l: int,
+    m: int,
+    Z: int = 1,
+) -> Union[float, np.ndarray]:
+    """Probability density |ψ_{nlm}(r, theta, phi)|^2 in a0^(-3).
+
+    Args:
+        r: Distance in a0.
+        theta: Polar angle.
+        phi: Azimuthal angle.
+        n, l, m: Quantum numbers.
+        Z: Atomic number.
+
+    Returns:
+        |R_{nl}(r)|^2 * |Y_{lm}(theta, phi)|^2 in a0^(-3).
     """
     R = radial_wavefunction(n, l, r, Z)
     Y = spherical_harmonic(l, m, theta, phi)
-    return R**2 * Y**2
+    return (R ** 2) * (Y ** 2)
 
-def to_cartesian(r, theta, phi):
-    """
-    Convert spherical coordinates to cartesian.
 
-    r     : radial distance
-    theta : polar angle (0 to pi)
-    phi   : azimuthal angle (0 to 2pi)
+def to_cartesian(
+    r: Union[float, np.ndarray],
+    theta: Union[float, np.ndarray],
+    phi: Union[float, np.ndarray],
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """Convert spherical coordinates to Cartesian coordinates (in a0)."""
+    r_arr = np.asarray(r, dtype=float)
+    th_arr = np.asarray(theta, dtype=float)
+    ph_arr = np.asarray(phi, dtype=float)
 
-    Returns (x, y, z)
-    """
-    x = r * math.sin(theta) * math.cos(phi)
-    y = r * math.sin(theta) * math.sin(phi)
-    z = r * math.cos(theta)
+    sin_th = np.sin(th_arr)
+    x = r_arr * sin_th * np.cos(ph_arr)
+    y = r_arr * sin_th * np.sin(ph_arr)
+    z = r_arr * np.cos(th_arr)
     return x, y, z
 
-def generate_point_cloud(n, l, m, Z=1, num_points=3000):
+
+def get_energy(n: int, Z: int = 1, unit: str = "Hartree") -> float:
+    """Energy of hydrogen-like state.
+
+    Args:
+        n: Principal quantum number (n >= 1).
+        Z: Atomic number (Z >= 1).
+        unit: 'Hartree' (default) or 'eV'.
+
+    Returns:
+        Energy in requested unit. -Z^2 / (2 n^2) in Hartree.
     """
-    Generates a point cloud by rejection sampling the probability density.
+    if n < 1:
+        raise ValueError(f"Principal quantum number n must be >= 1, got {n}")
+    if Z < 1:
+        raise ValueError(f"Atomic number Z must be >= 1, got {Z}")
 
-    Returns numpy array of shape (num_points, 4) -> [x, y, z, probability]
+    e_hartree = -float(Z ** 2) / (2.0 * (n ** 2))
+    if unit.lower() == "ev":
+        return e_hartree * HARTREE_EV
+    return e_hartree
+
+
+def generate_point_cloud(
+    n: int, l: int, m: int, Z: int = 1, num_points: int = 3000
+) -> np.ndarray:
+    """Generate (num_points, 4) array of [x, y, z, |ψ|²] in Bohr radii a0.
+
+    Legacy signature retained for CLI and renderer compatibility.
+    Delegates to the vectorized sampling engine.
     """
-    a0 = 5.29177210903e-11
-    max_r = n * n * 6 * a0  # sensible upper bound based on n
+    # Lazy import to avoid circular dependency
+    from sampling import sample_hydrogenic_orbital
 
-    # Find approximate max probability for rejection sampling
-    max_prob = 0
-    for i in range(1000):
-        r = (i / 1000) * max_r
-        p = probability_density(r, math.pi/2, 0, n, l, m, Z) * r**2
-        if p > max_prob:
-            max_prob = p
-    max_prob *= 4  # safety margin
-
-    points = []
-    attempts = 0
-    max_attempts = num_points * 100
-
-    while len(points) < num_points and attempts < max_attempts:
-        attempts += 1
-
-        # Pick random spherical coordinates
-        r     = np.random.uniform(0, max_r)
-        theta = np.arccos(2 * np.random.uniform(0, 1) - 1)  # uniform on sphere
-        phi   = np.random.uniform(0, 2 * math.pi)
-
-        # Calculate probability at this point
-        prob = probability_density(r, theta, phi, n, l, m, Z) * r**2
-
-        # Rejection test
-        if np.random.uniform(0, max_prob) < prob:
-            x, y, z = to_cartesian(r, theta, phi)
-            points.append([x, y, z, prob])
-
-    return np.array(points)
-
-def get_energy(n, Z=1):    #Energy of hydrogen-like atom at level n.
-    return -13.6 * (Z**2) / (n**2)
-
-
+    points, psi2 = sample_hydrogenic_orbital(n, l, m, Z=Z, n_points=num_points)
+    return np.column_stack([points, psi2])
